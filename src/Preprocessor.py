@@ -18,24 +18,41 @@ class Preprocessor:
 
     def transform(self, filepath):
         df = pa.read_csv(filepath)
-        for s in self.strat:
-            df = s(df)
 
-        df = self.scaler.fit_transform(df)
-        
-        df_train, df_test = train_test_split(df, test_size=Preprocessor.test_size, random_state=53)
+        df_train, df_test = train_test_split(df, test_size=Preprocessor.test_size)
 
-        y_train = df_train.filter(like="HeartDisease")
-    
-        X_train = df_train.drop(columns=y_train.columns, axis=1)
+        X, y, scaler = Preprocessor.normalToPreprocessed(df)
 
-        y_test = df_test.filter(like="HeartDisease")
-    
-        X_test = df_test.drop(columns=y_test.columns, axis=1)
+        X_train, y_train, _ = Preprocessor.normalToPreprocessed(df_train, scaler)
+        X_test, y_test, _ = Preprocessor.normalToPreprocessed(df_test, scaler)
 
         return X_train, y_train, X_test, y_test
 
+    @staticmethod
+    def normalToPreprocessed(df, scaler : StandardScaler = None, separateY : bool = False):
+        objColumns = []
+        for c in df.columns:
+            if isinstance(df[c].to_numpy()[0], str):
+                objColumns.append(c)
+
+        if separateY:
+            df = pa.get_dummies(df, columns=objColumns+['HeartDisease'])
+        else:
+            df = pa.get_dummies(df, columns=objColumns)
+
+
+
+        y = df.filter(like="HeartDisease")
         
+        X = df.drop(columns=y.columns, axis=1)
+        
+        if scaler is None:
+            scaler = StandardScaler()
+            scaler.fit(X, y)
+
+        X = scaler.transform(X)
+        
+        return X, y.to_numpy(), scaler    
         
 
     @staticmethod
@@ -54,3 +71,14 @@ class Preprocessor:
         for i in range(Preprocessor.len_strat):
             strat.append(Preprocessor.chooseFunction(i, ind[i]))
         return strat
+    
+if __name__ == "__main__":
+
+    filepath = "C:/Users/romai/Documents/M1/S1/Python for AI/Hearth disiz/heart.csv"
+
+    preprocessor = Preprocessor()
+
+    X_train, y_train, X_test, y_test = preprocessor.transform(filepath)
+
+    print(X_test)
+    print(y_test)
